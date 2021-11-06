@@ -483,9 +483,7 @@ class ClearJitCountersVisitor : public ClassVisitor {
     }
     for (ArtMethod& m : klass->GetMethods(kRuntimePointerSize)) {
       if (!m.IsAbstract()) {
-        if (m.GetCounter() != 0) {
-          m.SetCounter(0);
-        }
+        m.ResetCounter();
       }
     }
     return true;
