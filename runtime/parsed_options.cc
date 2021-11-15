@@ -164,7 +164,7 @@ std::unique_ptr<RuntimeParser> ParsedOptions::MakeParser(bool ignore_unrecognize
           .IntoKey(M::ProfileClock)
       .Define("-Xjitthreshold:_")
           .WithType<unsigned int>()
-          .IntoKey(M::JITCompileThreshold)
+          .IntoKey(M::JITOptimizeThreshold)
       .SetCategory("ART")
       .Define("-Ximage:_")
           .WithType<std::string>()
