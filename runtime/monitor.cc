@@ -43,6 +43,9 @@
 #include "verifier/method_verifier.h"
 #include "well_known_classes.h"
 #include <android-base/properties.h>
+#include <android-base/strings.h>
+#include <linux/sched.h>
+#include <unistd.h>
 
 static_assert(ART_USE_FUTEXES);
 
@@ -118,6 +121,7 @@ Monitor::Monitor(Thread* self, Thread* owner, ObjPtr<mirror::Object> obj, int32_
   CHECK(owner == nullptr || owner == self || owner->IsSuspended());
   // The identity hash code is set for the life time of the monitor.
 
+  UpdateBoostState(obj);
   bool monitor_timeout_enabled = Runtime::Current()->IsMonitorTimeoutEnabled();
   if (monitor_timeout_enabled) {
     MaybeEnableTimeout();
@@ -151,6 +155,7 @@ Monitor::Monitor(Thread* self,
   CHECK(owner == nullptr || owner == self || owner->IsSuspended());
   // The identity hash code is set for the life time of the monitor.
 
+  UpdateBoostState(obj);
   bool monitor_timeout_enabled = Runtime::Current()->IsMonitorTimeoutEnabled();
   if (monitor_timeout_enabled) {
     MaybeEnableTimeout();
@@ -439,6 +444,13 @@ bool Monitor::TryLock(Thread* self, bool spin) {
     }
   }
   DCHECK(monitor_lock_.IsExclusiveHeld(self));
+  if (need_boost_) {
+    struct sched_param param = {0};
+    param.sched_priority = 2;
+    if (sched_setscheduler(0, SCHED_FIFO, &param) != 0) {
+      LOG(WARNING) << "Failed to boost current thread to FIFO.";
+    }
+  }
   AtraceMonitorLock(self, GetObject(), /* is_wait= */ false);
   return true;
 }
@@ -759,6 +771,13 @@ bool Monitor::Unlock(Thread* self) {
       // Keep monitor_lock_, but pretend we released it.
       FakeUnlockMonitorLock();
     }
+  if (need_boost_) {
+    struct sched_param param = {0};
+    param.sched_priority = 0;
+    if (sched_setscheduler(0, SCHED_OTHER, &param) != 0) {
+      LOG(WARNING) << "Failed to set current thread back to SCHED_OTHER.";
+    }
+  }
     return true;
   }
   // We don't own this, so we're not allowed to unlock it.
@@ -1740,6 +1759,28 @@ void Monitor::MaybeEnableTimeout() {
   if (current_package == "android" || enabled_for_app) {
     monitor_lock_.setEnableMonitorTimeout();
     monitor_lock_.setMonitorId(monitor_id_);
+  }
+}
+
+bool Monitor::IsSystemMajorMonitor(ObjPtr<mirror::Object> obj) {
+  std::string track_package = "am.ActivityManagerService,wm.WindowManagerGlobalLock";
+  std::vector<std::string> track_list = android::base::Split(track_package, ",");
+  std::string class_name = mirror::Object::PrettyTypeOf(obj);
+  std::string prefix_name = "com.android.server.";
+  if (class_name != "null") {
+    for (const auto& name : track_list) {
+      std::string pkg_name = prefix_name + name;
+      if (class_name == std::string(pkg_name)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void Monitor::UpdateBoostState(ObjPtr<mirror::Object> obj) {
+  if (Runtime::Current()->IsSystemServer() && IsSystemMajorMonitor(obj)) {
+    need_boost_ = true;
   }
 }
 
