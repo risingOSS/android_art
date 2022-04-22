@@ -775,13 +775,6 @@ class Thread {
         OFFSETOF_MEMBER(tls_32bit_sized_values, is_gc_marking));
   }
 
-  template <PointerSize pointer_size>
-  static constexpr ThreadOffset<pointer_size> DeoptCheckRequiredOffset() {
-    return ThreadOffset<pointer_size>(
-        OFFSETOF_MEMBER(Thread, tls32_) +
-        OFFSETOF_MEMBER(tls_32bit_sized_values, is_deopt_check_required));
-  }
-
   static constexpr size_t IsGcMarkingSize() {
     return sizeof(tls32_.is_gc_marking);
   }
@@ -1032,10 +1025,6 @@ class Thread {
   }
 
   void SetIsGcMarkingAndUpdateEntrypoints(bool is_marking);
-
-  bool IsDeoptCheckRequired() const { return tls32_.is_deopt_check_required; }
-
-  void SetDeoptCheckRequired(bool flag) { tls32_.is_deopt_check_required = flag; }
 
   bool GetWeakRefAccessEnabled() const;  // Only safe for current thread.
 
@@ -1732,7 +1721,6 @@ class Thread {
           thread_exit_check_count(0),
           is_transitioning_to_runnable(false),
           is_gc_marking(false),
-          is_deopt_check_required(false),
           weak_ref_access_enabled(WeakRefAccessState::kVisiblyEnabled),
           disable_thread_flip_count(0),
           user_code_suspend_count(0),
@@ -1786,12 +1774,6 @@ class Thread {
     // thread local so that we can simplify the logic to check for the fast path of read barriers of
     // GC roots.
     bool32_t is_gc_marking;
-
-    // True if we need to check for deoptimization when returning from the runtime functions. This
-    // is required only when a class is redefined to prevent executing code that has field offsets
-    // embedded. For non-debuggable apps redefinition is not allowed and this flag should always be
-    // set to false.
-    bool32_t is_deopt_check_required;
 
     // Thread "interrupted" status; stays raised until queried or thrown.
     Atomic<bool32_t> interrupted;
