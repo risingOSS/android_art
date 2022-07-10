@@ -234,10 +234,10 @@ bool ParseZygoteKind(const char* input, ZygoteKind* zygote_kind) {
 class OnDeviceRefresh final {
  private:
   // Maximum execution time for odrefresh from start to end.
-  static constexpr time_t kMaximumExecutionSeconds = 300;
+  static constexpr time_t kMaximumExecutionSeconds = 480;
 
   // Maximum execution time for any child process spawned.
-  static constexpr time_t kMaxChildProcessSeconds = 90;
+  static constexpr time_t kMaxChildProcessSeconds = 120;
 
   // Configuration to use.
   const OdrConfig& config_;
