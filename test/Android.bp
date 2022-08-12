@@ -1357,6 +1357,7 @@ filegroup {
         ":art-gtest-jars-MainStripped",
         ":art-gtest-jars-MainUncompressedAligned",
         ":art-gtest-jars-MultiDexUncompressedAligned",
+        ":art-gtest-jars-SuperWithAccessChecks",
         ":art-gtest-jars-VerifierDeps",
         ":art-gtest-jars-VerifierDepsMulti",
         ":art-gtest-jars-VerifySoftFailDuringClinit",
@@ -1772,6 +1773,13 @@ genrule {
     defaults: ["art-gtest-jars-smali-defaults"],
     srcs: ["ArrayClassWithUnresolvedComponent/*.smali"],
     out: ["art-gtest-jars-ArrayClassWithUnresolvedComponent.dex"],
+}
+
+genrule {
+    name: "art-gtest-jars-SuperWithAccessChecks",
+    defaults: ["art-gtest-jars-smali-defaults"],
+    srcs: ["SuperWithAccessChecks/*.smali"],
+    out: ["art-gtest-jars-SuperWithAccessChecks.dex"],
 }
 
 genrule {
