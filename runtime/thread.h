@@ -1495,7 +1495,7 @@ class Thread {
 
   template<bool kTransactionActive>
   static void InitPeer(ObjPtr<mirror::Object> peer,
-                       jboolean thread_is_daemon,
+                       bool as_daemon,
                        ObjPtr<mirror::Object> thread_group,
                        ObjPtr<mirror::String> thread_name,
                        jint thread_priority)
