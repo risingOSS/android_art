@@ -842,10 +842,14 @@ class Runtime {
     return reinterpret_cast<mirror::Class*>(0xebadbeef);
   }
 
-  // Helper for the GC to process a weak class in a table.
+  // Helper for the GC to process a weak class in a table. If
+  // read_from_space_class is true (only sometimes in userfaultfd GC) then load
+  // class-loader from from-space copy of the class. This is required if this
+  // function is being invoked after kernel mremap has already been done.
   static void ProcessWeakClass(GcRoot<mirror::Class>* root_ptr,
                                IsMarkedVisitor* visitor,
-                               mirror::Class* update)
+                               mirror::Class* update,
+                               bool read_from_space_class = false)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Create a normal LinearAlloc or low 4gb version if we are 64 bit AOT compiler.

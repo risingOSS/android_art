@@ -2582,17 +2582,20 @@ void Runtime::VisitReflectiveTargets(ReflectiveValueVisitor *visitor) {
 }
 
 void Runtime::VisitImageRoots(RootVisitor* visitor) {
-  for (auto* space : GetHeap()->GetContinuousSpaces()) {
-    if (space->IsImageSpace()) {
-      auto* image_space = space->AsImageSpace();
-      const auto& image_header = image_space->GetImageHeader();
-      for (int32_t i = 0, size = image_header.GetImageRoots()->GetLength(); i != size; ++i) {
-        mirror::Object* obj =
-            image_header.GetImageRoot(static_cast<ImageHeader::ImageRoot>(i)).Ptr();
-        if (obj != nullptr) {
-          mirror::Object* after_obj = obj;
-          visitor->VisitRoot(&after_obj, RootInfo(kRootStickyClass));
-          CHECK_EQ(after_obj, obj);
+  // We only confirm that image roots are unchanged.
+  if (kIsDebugBuild) {
+    for (auto* space : GetHeap()->GetContinuousSpaces()) {
+      if (space->IsImageSpace()) {
+        auto* image_space = space->AsImageSpace();
+        const auto& image_header = image_space->GetImageHeader();
+        for (int32_t i = 0, size = image_header.GetImageRoots()->GetLength(); i != size; ++i) {
+          mirror::Object* obj =
+              image_header.GetImageRoot(static_cast<ImageHeader::ImageRoot>(i)).Ptr();
+          if (obj != nullptr) {
+            mirror::Object* after_obj = obj;
+            visitor->VisitRoot(&after_obj, RootInfo(kRootStickyClass));
+            CHECK_EQ(after_obj, obj);
+          }
         }
       }
     }
@@ -3522,15 +3525,23 @@ bool Runtime::GetOatFilesExecutable() const {
 
 void Runtime::ProcessWeakClass(GcRoot<mirror::Class>* root_ptr,
                                IsMarkedVisitor* visitor,
-                               mirror::Class* update) {
-    // This does not need a read barrier because this is called by GC.
+                               mirror::Class* update,
+                               bool read_from_space_class) {
+  // This does not need a read barrier because this is called by GC.
   mirror::Class* cls = root_ptr->Read<kWithoutReadBarrier>();
   if (cls != nullptr && cls != GetWeakClassSentinel()) {
-    DCHECK((cls->IsClass<kDefaultVerifyFlags>()));
+    mirror::Class* from_cls;
+    if (read_from_space_class) {
+      DCHECK(gUseUserfaultfd);
+      from_cls = root_ptr->Read<kWithFromSpaceBarrier>();
+    } else {
+      DCHECK((cls->IsClass<kDefaultVerifyFlags>()));
+      from_cls = cls;
+    }
     // Look at the classloader of the class to know if it has been unloaded.
     // This does not need a read barrier because this is called by GC.
     ObjPtr<mirror::Object> class_loader =
-        cls->GetClassLoader<kDefaultVerifyFlags, kWithoutReadBarrier>();
+        from_cls->GetClassLoader<kDefaultVerifyFlags, kWithoutReadBarrier>();
     if (class_loader == nullptr || visitor->IsMarked(class_loader.Ptr()) != nullptr) {
       // The class loader is live, update the entry if the class has moved.
       mirror::Class* new_cls = down_cast<mirror::Class*>(visitor->IsMarked(cls));
