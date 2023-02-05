@@ -1500,12 +1500,18 @@ void Heap::ThrowOutOfMemoryError(Thread* self, size_t byte_count, AllocatorType 
 
 void Heap::DoPendingCollectorTransition() {
   CollectorType desired_collector_type = desired_collector_type_;
+  
+  const size_t bytes_allocated_before_gc = GetBytesAllocated();
+  const uint64_t freed_bytes = current_gc_iteration_.GetFreedBytes() +
+          current_gc_iteration_.GetFreedLargeObjectBytes() +
+          current_gc_iteration_.GetFreedRevokeBytes();
+
+  num_bytes_alive_after_gc_ = bytes_allocated_before_gc - freed_bytes;
 
   if (collector_type_ == kCollectorTypeCC) {
     // App's allocations (since last GC) more than the threshold then do TransitionGC
     // when the app was in background. If not then don't do TransitionGC.
-    size_t num_bytes_allocated_since_gc = GetBytesAllocated() - num_bytes_alive_after_gc_;
-    if (num_bytes_allocated_since_gc <
+    if (num_bytes_alive_after_gc_ <
         (UnsignedDifference(target_footprint_.load(std::memory_order_relaxed),
                             num_bytes_alive_after_gc_)/4)
         && !kStressCollectorTransition
